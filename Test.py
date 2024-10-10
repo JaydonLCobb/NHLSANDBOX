@@ -110,7 +110,7 @@ def get_all_keys(data):
         for item in data:
             keys.update(get_all_keys(item))  # Recursively get keys from each item in the list
 
-    return keys
+    return list(dict.fromkeys(keys))
 
 
 def get_weekly_games():
@@ -156,11 +156,13 @@ def get_team_schedule(team):
 
  
 def get_top_players():
-    url = "https://api.nhle.com/stats/rest/en/leaders/skaters/points?cayenneExp=season=20232024"
+    url = "https://api.nhle.com/stats/rest/en/leaders/skaters/points?cayenneExp=season=20242025"
     response = requests.get(url)
     data = response.json()
     pretty_data = json.dumps(data, indent=4)
-    print(pretty_data)
+    # print(get_api_sections(url))
+    print(get_all_keys(url))
+    #print(pretty_data)
 
 
 def get_shift_charts():
@@ -181,15 +183,15 @@ def get_api_sections(url):
         list: A list of top-level keys in the API response, or an error message if the request fails.
     """
     try:
-        # Step 1: Make the API Request
+       
         response = requests.get(url)
 
-        # Check if the request was successful
+     
         if response.status_code == 200:
-            # Step 2: Parse the Response
+        
             data = response.json()
             
-            # Step 3: List all the sections (keys) in the top-level dictionary
+       
             sections = list(data.keys())
             return sections
         else:
@@ -210,15 +212,15 @@ def get_api_sections2(url):
         dict: A dictionary containing the top-level keys and their corresponding values.
     """
     try:
-        # Step 1: Make the API Request
+     
         response = requests.get(url)
 
-        # Check if the request was successful
+       
         if response.status_code == 200:
-            # Step 2: Parse the Response
+          
             data = response.json()
             
-            # Step 3: Return the keys and their values
+         
             return {key: data[key] for key in data.keys()}
         else:
             return {"error": f"Error: Received status code {response.status_code}"}
@@ -231,35 +233,93 @@ def get_weekly_games2():
     data = get_api_response(url)
 
     if isinstance(data, dict):
-        # Set the start to today and end to 7 days from today
+     
         today = datetime.now()
-        start_of_week = today  # Today
-        end_of_week = today + timedelta(days=7)  # 7 days from today
+        start_of_week = today - timedelta(days=1) 
+        end_of_week = today + timedelta(days=7)  
 
-        # List to store games scheduled for the next week
+      
         games_this_week = []
 
-        # Check for the nextStartDate
-        if 'nextStartDate' in data:
-            next_start_date_str = data['nextStartDate']
-            next_start_date = datetime.strptime(next_start_date_str, '%Y-%m-%d')
-            hometeam = data['homeTeam']
-            # Check if the game falls within the next week
-            if start_of_week <= next_start_date <= end_of_week:
-                games_this_week.append({'nextStartDate': next_start_date_str})
-                games_this_week.append({'homeTeam': hometeam})
+       
+        if 'gameWeek' in data:
+            for week in data['gameWeek']:
+                game_date_str = week['date']
+                game_date = datetime.strptime(game_date_str, '%Y-%m-%d')
 
-        # Print out the games scheduled for the next week
+             
+                if start_of_week <= game_date <= end_of_week:
+                    for game in week['games']:
+                        home_team = game['homeTeam']['placeName']['default']
+                        home_team_id = game['homeTeam']['id']
+                        away_team = game['awayTeam']['placeName']['default']
+                        away_team_id = game['awayTeam']['id']
+                        id = game['id']
+
+                        games_this_week.append({
+                            'gameDate': game_date_str,
+                            'homeTeam': home_team,
+                            'homeTeamId': home_team_id,
+                            'awayTeam': away_team,
+                            'awayTeamId': away_team_id,
+                            'Game ID': id
+                        })
+
+     
         if games_this_week:
             print("Games scheduled for the next week:")
             print(json.dumps(games_this_week, indent=4))
         else:
             print("No games scheduled for the next week.")
     else:
-        print(data)  # Print the error message if applicable
+        print(data)  
+
+def get_today_games():
+    url = "https://api-web.nhle.com/v1/schedule/now"
+    data = get_api_response(url)
+
+    if isinstance(data, dict):
+      
+        today = datetime.now().date()
+
+      
+        games_today = []
+
+       
+        if 'gameWeek' in data:
+            for week in data['gameWeek']:
+                game_date_str = week['date']
+                game_date = datetime.strptime(game_date_str, '%Y-%m-%d').date()
+
+                
+                if game_date == today:
+                    for game in week['games']:
+                        home_team = game['homeTeam']['placeName']['default']
+                        home_team_id = game['homeTeam']['id']
+                        away_team = game['awayTeam']['placeName']['default']
+                        away_team_id = game['awayTeam']['id']
+                        game_id = game['id']
+
+                        games_today.append({
+                            'gameDate': game_date_str,
+                            'homeTeam': home_team,
+                            'homeTeamId': home_team_id,
+                            'awayTeam': away_team,
+                            'awayTeamId': away_team_id,
+                            'Game ID': game_id
+                        })
+
+        
+        if games_today:
+            print("Games scheduled for today:")
+            print(json.dumps(games_today, indent=4))
+        else:
+            print("No games scheduled for today.")
+    else:
+        print(data)  
 
 def main():
-    print(get_weekly_games2())
+    # print(get_weekly_games2())
     # get_player_id("Hughes", "forwards", "NJD")
     # get_player_id("Hughes", "defensemen", "VAN")
     # get_player_id("Brennan", "goalies", "NJD")
@@ -270,6 +330,8 @@ def main():
     # get_team_schedule("NJD")
     # get_top_players()
     # get_shift_charts()
+ #  print(get_weekly_games2())
+    print(get_today_games())
     
 if __name__ == "__main__":
     main()
